@@ -1,0 +1,251 @@
+Date: Sun, 30 Jun 91 12:20:18 +0300
+From: Yaron Keren
+Subject: Compute Maximal Compatibility Classes
+
+
+After computing MCCs myself two times (with lots of errors) I decided
+that my HP48SX will do it better. So here it is:
+
+This is a program for computing Maximal Compatibility Classes or MCCs.
+MCCs are being used when trying to minimize microinstruction size in
+microprogramming.
+
+The first step (and the hardest , most error-prune) in solving this
+problem is determining the MCCs. This program will automate the process.
+
+If you want to know more read:
+    John P. Hayes, Computer Architecture and Organization
+    Section 4.3.2 "Minimizing Microinstruction Size" (1st ed-pp. 281)
+
+or
+
+    Agerwala T.:"Microprogram Optimization: A Survey", IEEE Trans.
+    Comput., vol. C-25, pp. 962-973, October 1976
+
+How to use the program
+======================
+
+Download the MCCs directory to your HP48SX. Changedir into. Press CST.
+
+To enter microinstructions Press INS. The INS procedure will ask you
+for the microinstructions. After each microinstruction press ENTER.
+When done press ENTER alone.
+
+            Example:
+            =======
+
+            microinstruction | Control Lines
+            =================+==============
+                   I1        |    a,b,c,g
+                   I2        |    a,c,e,h
+                   I3        |     a,d,f
+                   I4        |     b,c,f
+
+            INS
+            ABCG ENTER
+            ACEH ENTER
+            ADF  ENTER
+            BCF  ENTER
+            ENTER
+
+The program assumes control lines names of A,B,C,D,... To let the program
+know the highest letter in control lines use INIS.
+
+            Example:
+            ========
+            We see that the instructions contains A..H therefore:
+
+            INIS
+            H   ENTER
+
+To get the MCCs press NEXS repeatedly until you get a group containing
+no *-marked (The * marker means deleted) This group is the last group as
+the next group is empty.
+
+            Example:
+            ========
+            NEXS
+( 30-120 seconds )
+            1:{ "A" "*B" "*C" "*D" "*E" "*F" "*G" "*H" }
+            NEXS
+( 30-120 seconds )
+            2:{ "A" "*B" "*C" "*D" "*E" "*F" "*G" "*H" }
+            1:{ "*BD" "*BE" "*BH" "CD" "*DE" "*DG" "*DH" "*EF" "*EG"
+                "*FG" "*FH" "*GH" }
+            NEXS
+( 30-120 seconds )
+            3:{ "A" "*B" "*C" "*D" "*E" "*F" "*G" "*H" }
+            2:{ "*BD" "*BE" "*BH" "CD" "*DE" "*DG" "*DH" "*EF" "*EG"
+                "*FG" "*FH" "*GH" }
+            1:{ "BDE" "BDH" "DEG" "DGH" "EFG" "FGH" }
+Since no one *-marked in this group we finished.
+
+        Now we have:
+        S1: a ,*b,*c,*d,*e,*f,*g,*h
+        S2: *bd,*be,*bh, cd ,*de,*dg,*dh,*ef,*eg,*fg,*fh,*gh
+        S3: bde,bdh,deg,dgh,fgh
+        S4: (empty)
+
+        *-marked is deleted
+
+The MCCs are: a,cd,bde,bdh,deg,dgh,fgh
+
+
+Program directory follows...
+-------------------------------CUT-------------------------------------------
+%%HP: T(3)A(D)F(.);
+DIR 
+  INS 
+  \<< 
+    1 \-> I 
+    \<< 
+      { } 
+      WHILE "I" I + " ENTER TO QUIT" + { \Ga } 
+      INPUT DUP "" \=/ 
+      REPEAT 
+        + 'I' INCR DROP 
+      END 
+      DROP DUP DUP SIZE 'LINS' STO 'SINS' STO 
+      LG2S 'GINS' STO 
+    \>> 
+  \>> 
+  INIS 
+  \<< 
+    "LAST LETTER" { \Ga } INPUT { } SWAP NUM 65 
+    SWAP 
+    FOR I 
+      I CHR + 
+    NEXT 
+    DUP 'SI' STO LG2S 'GI' STO 
+  \>> 
+  NEXS 
+  \<< 
+    64 STWS
+    NEWG SI OBJ\-> 1 \-> L M 
+    \<< 
+      WHILE M L \<= 
+      REPEAT 
+        L ROLL USED M GET 
+        IF 
+        THEN 
+          "*" SWAP + 
+        END 
+        'M' INCR DROP 
+      END 
+      L \->LIST 
+    \>> 
+    SO 'SI' STO GO 'GI' STO 
+  \>> 
+  SI { } 
+  USED [ 0 0 0 0 0 0 ] 
+  SO { } 
+  SINS { "ABCG" "ACEH" "ADF" "BCF" } 
+  GINS { # 47h # 95h # 29h # 26h } 
+  LINS 4 
+  G16 { # 8000h # 4000h # 2000h # 1000h # 800h # 
+  400h # 200h # 100h # 80h # 40h # 20h # 10h # 8h 
+  # 4h # 2h # 1h # 0h } 
+  GI { } 
+  GO { } 
+  CST { INS INIS NEXS } 
+  NEWG 
+  \<< 
+    SI SIZE \-> Z 
+    \<< 
+      Z 1 \->LIST 0 CON 'USED' STO { } 'GO' STO 1 
+      Z 1 - 
+      FOR I 
+        I 1 + Z 
+        FOR J 
+          GI I GET GI J GET OR 
+          IF NEW 
+          THEN 
+            IF LEGAL 
+            THEN 
+              'GO' SWAP STO+ 1 
+            ELSE 
+              0 
+            END 
+          ELSE 
+            DROP 1 
+          END 
+          IF 
+          THEN 
+            'USED' I 1 PUT 'USED' J 1 PUT 
+          END 
+        NEXT 
+      NEXT 
+      GO LG2S 'SO' STO 
+    \>> 
+  \>> 
+  LEGAL 
+  \<< 
+    \-> V 
+    \<< 
+      GINS OBJ\-> DROP 
+      IFERR 
+      1 LINS 
+      FOR I 
+        V AND G16 SWAP POS 
+        IF NOT 
+        THEN 
+          LINS I - DROPN 0 INV 
+        END 
+      NEXT 
+      THEN 
+      ELSE 
+        V 1 
+      END 
+    \>> 
+  \>> 
+  NEW 
+  \<< 
+    DUP GO SWAP POS NOT 
+  \>> 
+  LG2S 
+  \<< 
+    OBJ\-> 1 \-> L M 
+    \<< 
+      WHILE M L \<= 
+      REPEAT 
+        L ROLL G2S 'M' INCR DROP 
+      END 
+      L \->LIST 
+    \>> 
+  \>> 
+  G2S 
+  \<< 
+    DUP TYPE 
+    CASE 
+      DUP 10 SAME 
+      THEN 
+        DROP "" 65 \-> S C 
+        \<< 
+          WHILE DUP 0 R\->B \=/ 
+          REPEAT 
+            DUP 
+            IF 1 R\->B AND B\->R 
+            THEN 
+              'S' C CHR STO+ 
+            END 
+            SR 1 'C' STO+ 
+          END 
+          DROP S 
+        \>> 
+      END 
+      DUP 2 SAME 
+      THEN 
+        DROP \-> S 
+        \<< 
+          0 1 S SIZE 
+          FOR I 
+            S I I SUB NUM 65 - 2 SWAP ^ + 
+          NEXT 
+          R\->B 
+        \>> 
+      END 
+    END 
+  \>> 
+END 
+-------------------------------CUT-------------------------------------------
+
